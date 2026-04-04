@@ -106,7 +106,7 @@ class _RawTouchGestureDetectorRegionState
   // `onDoubleTap()` does not provide the position of the tap event.
   Offset _lastPosOfDoubleTapDown = Offset.zero;
   bool _touchModePanStarted = false;
-  Offset _doubleFinerTapPosition = Offset.zero;
+  Offset _doubleFingerTapPosition = Offset.zero;
   bool _isTwoFingerScrollActive = false;
 
   // For mouse mode, we need to block the events when the cursor is in a blocked area.
@@ -306,7 +306,7 @@ class _RawTouchGestureDetectorRegionState
     if (isNotTouchBasedDevice()) {
       return;
     }
-    _doubleFinerTapPosition = d.localPosition;
+    _doubleFingerTapPosition = d.localPosition;
     // ignore for desktop and mobile
   }
 
@@ -320,10 +320,10 @@ class _RawTouchGestureDetectorRegionState
     final isMobileMouseMode = isMobile && !ffiModel.touchMode;
     final isIOSTouchMode = isIOS &&
         ffiModel.touchMode &&
-        ffi.cursorModel.isInRemoteRect(_doubleFinerTapPosition);
+        ffi.cursorModel.isInRemoteRect(_doubleFingerTapPosition);
     // We can't use `d.localPosition` here because it's always (0, 0) on desktop.
     final isDesktopInRemoteRect = (isDesktop || isWebDesktop) &&
-        ffi.cursorModel.isInRemoteRect(_doubleFinerTapPosition);
+        ffi.cursorModel.isInRemoteRect(_doubleFingerTapPosition);
     if (isMobileMouseMode || isIOSTouchMode || isDesktopInRemoteRect) {
       await inputModel.tap(MouseButtons.right);
     }
@@ -482,14 +482,7 @@ class _RawTouchGestureDetectorRegionState
 
     if (_shouldStartTwoFingerScroll(d)) {
       _isTwoFingerScrollActive = true;
-      _mouseScrollIntegral += d.focalPointDelta.dy / _kMouseScrollSensitivity;
-      if (_mouseScrollIntegral > 1) {
-        inputModel.scroll(1);
-        _mouseScrollIntegral = 0;
-      } else if (_mouseScrollIntegral < -1) {
-        inputModel.scroll(-1);
-        _mouseScrollIntegral = 0;
-      }
+      _processScrollDelta(d.focalPointDelta.dy);
       return;
     }
 
@@ -556,6 +549,17 @@ class _RawTouchGestureDetectorRegionState
         scaleDelta < _kTwoFingerScaleThreshold;
   }
 
+  void _processScrollDelta(double deltaY) {
+    _mouseScrollIntegral += deltaY / _kMouseScrollSensitivity;
+    if (_mouseScrollIntegral > 1) {
+      inputModel.scroll(1);
+      _mouseScrollIntegral = 0;
+    } else if (_mouseScrollIntegral < -1) {
+      inputModel.scroll(-1);
+      _mouseScrollIntegral = 0;
+    }
+  }
+
   void _configureLongPressGesture(LongPressGestureRecognizer instance) {
     if (isIOS) {
       instance
@@ -575,16 +579,7 @@ class _RawTouchGestureDetectorRegionState
   get onHoldDragCancel => null;
   get onThreeFingerVerticalDragUpdate => ffi.ffiModel.isPeerAndroid
       ? null
-      : (d) {
-          _mouseScrollIntegral += d.delta.dy / _kMouseScrollSensitivity;
-          if (_mouseScrollIntegral > 1) {
-            inputModel.scroll(1);
-            _mouseScrollIntegral = 0;
-          } else if (_mouseScrollIntegral < -1) {
-            inputModel.scroll(-1);
-            _mouseScrollIntegral = 0;
-          }
-        };
+      : (d) => _processScrollDelta(d.delta.dy);
 
   makeGestures(BuildContext context) {
     return <Type, GestureRecognizerFactory>{
