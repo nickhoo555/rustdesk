@@ -86,9 +86,13 @@ class RawTouchGestureDetectorRegion extends StatefulWidget {
 ///   HoldDrag -> left drag
 class _RawTouchGestureDetectorRegionState
     extends State<RawTouchGestureDetectorRegion> {
+  // Scroll delta divisor for touch-based wheel gestures.
   static const double _kMouseScrollSensitivity = 4;
+  // Minimum vertical movement before an iOS two-finger gesture can become scroll.
   static const double _kMinVerticalScrollDelta = 1;
+  // Vertical movement must exceed horizontal movement by this ratio to be scroll.
   static const double _kVerticalScrollDirectionRatio = 1.2;
+  // Maximum allowed pinch delta for treating a two-finger gesture as scroll.
   static const double _kTwoFingerScaleThreshold = 0.02;
 
   Offset _cacheLongPressPosition = Offset(0, 0);

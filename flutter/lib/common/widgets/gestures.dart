@@ -56,7 +56,7 @@ class CustomTouchGestureRecognizer extends ScaleGestureRecognizer {
         if (onVerticalDragStart != null) {
           onVerticalDragStart!(DragStartDetails(globalPosition: d.localFocalPoint));
         }
-        debugPrint("start verticalDrag");
+        debugPrint("start VerticalDrag");
       } else if (d.pointerCount == 2 &&
           _currentState != GestureState.twoFingerScale) {
         onTwoFingerStartDebounce(d);
