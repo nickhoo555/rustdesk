@@ -480,7 +480,7 @@ class _RawTouchGestureDetectorRegionState
       return;
     }
 
-    if (_shouldStartTwoFingerScroll(d)) {
+    if (isIOS && _shouldStartTwoFingerScroll(d)) {
       _isTwoFingerScrollActive = true;
       _processScrollDelta(d.focalPointDelta.dy);
       return;
@@ -513,7 +513,6 @@ class _RawTouchGestureDetectorRegionState
     }
     if (_isTwoFingerScrollActive) {
       _isTwoFingerScrollActive = false;
-      _mouseScrollIntegral = 0;
       _scale = 1;
       return;
     }
@@ -535,7 +534,7 @@ class _RawTouchGestureDetectorRegionState
   }
 
   bool _shouldStartTwoFingerScroll(ScaleUpdateDetails d) {
-    if (!isIOS || ffi.ffiModel.isPeerAndroid) {
+    if (ffi.ffiModel.isPeerAndroid) {
       return false;
     }
     if (_isTwoFingerScrollActive) {
@@ -551,10 +550,11 @@ class _RawTouchGestureDetectorRegionState
 
   void _processScrollDelta(double deltaY) {
     _mouseScrollIntegral += deltaY / _kMouseScrollSensitivity;
-    if (_mouseScrollIntegral > 1) {
+    while (_mouseScrollIntegral > 1) {
       inputModel.scroll(1);
       _mouseScrollIntegral -= 1;
-    } else if (_mouseScrollIntegral < -1) {
+    }
+    while (_mouseScrollIntegral < -1) {
       inputModel.scroll(-1);
       _mouseScrollIntegral += 1;
     }
@@ -628,7 +628,8 @@ class _RawTouchGestureDetectorRegionState
           ..onOneFingerPanEnd = onOneFingerPanEnd
           ..onOneFingerPanCancel = onOneFingerPanCancel
           ..verticalDragPointerCount = isIOS ? 2 : 3
-          ..shouldStartTwoFingerVerticalDrag = _shouldStartTwoFingerScroll
+          ..shouldStartTwoFingerVerticalDrag =
+              isIOS ? _shouldStartTwoFingerScroll : null
           ..onTwoFingerScaleStart = onTwoFingerScaleStart
           ..onTwoFingerScaleUpdate = onTwoFingerScaleUpdate
           ..onTwoFingerScaleEnd = onTwoFingerScaleEnd
