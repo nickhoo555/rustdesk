@@ -86,6 +86,11 @@ class RawTouchGestureDetectorRegion extends StatefulWidget {
 ///   HoldDrag -> left drag
 class _RawTouchGestureDetectorRegionState
     extends State<RawTouchGestureDetectorRegion> {
+  static const double _kMouseScrollSensitivity = 4;
+  static const double _kMinVerticalScrollDelta = 1;
+  static const double _kVerticalScrollDirectionRatio = 1.2;
+  static const double _kTwoFingerScaleThreshold = 0.02;
+
   Offset _cacheLongPressPosition = Offset(0, 0);
   // Timestamp of the last long press event.
   int _cacheLongPressPositionTs = 0;
@@ -477,7 +482,7 @@ class _RawTouchGestureDetectorRegionState
 
     if (_shouldStartTwoFingerScroll(d)) {
       _isTwoFingerScrollActive = true;
-      _mouseScrollIntegral += d.focalPointDelta.dy / 4;
+      _mouseScrollIntegral += d.focalPointDelta.dy / _kMouseScrollSensitivity;
       if (_mouseScrollIntegral > 1) {
         inputModel.scroll(1);
         _mouseScrollIntegral = 0;
@@ -546,16 +551,32 @@ class _RawTouchGestureDetectorRegionState
     final verticalDelta = d.focalPointDelta.dy.abs();
     final horizontalDelta = d.focalPointDelta.dx.abs();
     final scaleDelta = (d.scale - 1).abs();
-    return verticalDelta > 1 &&
-        verticalDelta > horizontalDelta * 1.2 &&
-        scaleDelta < 0.02;
+    return verticalDelta > _kMinVerticalScrollDelta &&
+        verticalDelta > horizontalDelta * _kVerticalScrollDirectionRatio &&
+        scaleDelta < _kTwoFingerScaleThreshold;
+  }
+
+  void _configureLongPressGesture(LongPressGestureRecognizer instance) {
+    if (isIOS) {
+      instance
+        ..onLongPressDown = null
+        ..onLongPressUp = null
+        ..onLongPress = null
+        ..onLongPressMoveUpdate = null;
+      return;
+    }
+    instance
+      ..onLongPressDown = onLongPressDown
+      ..onLongPressUp = onLongPressUp
+      ..onLongPress = onLongPress
+      ..onLongPressMoveUpdate = onLongPressMoveUpdate;
   }
 
   get onHoldDragCancel => null;
   get onThreeFingerVerticalDragUpdate => ffi.ffiModel.isPeerAndroid
       ? null
       : (d) {
-          _mouseScrollIntegral += d.delta.dy / 4;
+          _mouseScrollIntegral += d.delta.dy / _kMouseScrollSensitivity;
           if (_mouseScrollIntegral > 1) {
             inputModel.scroll(1);
             _mouseScrollIntegral = 0;
@@ -585,13 +606,7 @@ class _RawTouchGestureDetectorRegionState
       }),
       LongPressGestureRecognizer:
           GestureRecognizerFactoryWithHandlers<LongPressGestureRecognizer>(
-              () => LongPressGestureRecognizer(), (instance) {
-        instance
-          ..onLongPressDown = isIOS ? null : onLongPressDown
-          ..onLongPressUp = isIOS ? null : onLongPressUp
-          ..onLongPress = isIOS ? null : onLongPress
-          ..onLongPressMoveUpdate = isIOS ? null : onLongPressMoveUpdate;
-      }),
+              () => LongPressGestureRecognizer(), _configureLongPressGesture),
       // Customized
       HoldTapMoveGestureRecognizer:
           GestureRecognizerFactoryWithHandlers<HoldTapMoveGestureRecognizer>(
