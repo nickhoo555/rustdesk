@@ -34,10 +34,10 @@ class CustomTouchGestureRecognizer extends ScaleGestureRecognizer {
   GestureScaleUpdateCallback? onTwoFingerScaleUpdate;
   GestureScaleEndCallback? onTwoFingerScaleEnd;
 
-  // threeFingerVerticalDrag
-  GestureDragStartCallback? onThreeFingerVerticalDragStart;
-  GestureDragUpdateCallback? onThreeFingerVerticalDragUpdate;
-  GestureDragEndCallback? onThreeFingerVerticalDragEnd;
+  // verticalDrag
+  GestureDragStartCallback? onVerticalDragStart;
+  GestureDragUpdateCallback? onVerticalDragUpdate;
+  GestureDragEndCallback? onVerticalDragEnd;
   int verticalDragPointerCount = 3;
   TwoFingerVerticalDragDecider? shouldStartTwoFingerVerticalDrag;
 
@@ -51,14 +51,10 @@ class CustomTouchGestureRecognizer extends ScaleGestureRecognizer {
       _debounceTimer?.cancel();
       if (d.pointerCount == 1 && _currentState != GestureState.oneFingerPan) {
         onOneFingerStartDebounce(d);
-      } else if (d.pointerCount == verticalDragPointerCount &&
-          _currentState != GestureState.verticalDrag &&
-          (verticalDragPointerCount != 2 ||
-              shouldStartTwoFingerVerticalDrag?.call(d) == true)) {
+      } else if (_shouldActivateVerticalDrag(d)) {
         _currentState = GestureState.verticalDrag;
-        if (onThreeFingerVerticalDragStart != null) {
-          onThreeFingerVerticalDragStart!(
-              DragStartDetails(globalPosition: d.localFocalPoint));
+        if (onVerticalDragStart != null) {
+          onVerticalDragStart!(DragStartDetails(globalPosition: d.localFocalPoint));
         }
         debugPrint("start verticalDrag");
       } else if (d.pointerCount == 2 &&
@@ -78,8 +74,8 @@ class CustomTouchGestureRecognizer extends ScaleGestureRecognizer {
             }
             break;
           case GestureState.verticalDrag:
-            if (onThreeFingerVerticalDragUpdate != null) {
-              onThreeFingerVerticalDragUpdate!(_getDragUpdateDetails(d));
+            if (onVerticalDragUpdate != null) {
+              onVerticalDragUpdate!(_getDragUpdateDetails(d));
             }
             break;
           default:
@@ -113,8 +109,8 @@ class CustomTouchGestureRecognizer extends ScaleGestureRecognizer {
           break;
         case GestureState.verticalDrag:
           debugPrint("VerticalDragState.onEnd");
-          if (onThreeFingerVerticalDragEnd != null) {
-            onThreeFingerVerticalDragEnd!(_getDragEndDetails(d));
+          if (onVerticalDragEnd != null) {
+            onVerticalDragEnd!(_getDragEndDetails(d));
           }
           break;
         default:
@@ -166,6 +162,17 @@ class CustomTouchGestureRecognizer extends ScaleGestureRecognizer {
       start(d);
       debugPrint("start twoFingerScale");
     }
+  }
+
+  bool _shouldActivateVerticalDrag(ScaleUpdateDetails d) {
+    if (d.pointerCount != verticalDragPointerCount ||
+        _currentState == GestureState.verticalDrag) {
+      return false;
+    }
+    if (verticalDragPointerCount != 2) {
+      return true;
+    }
+    return shouldStartTwoFingerVerticalDrag?.call(d) == true;
   }
 
   DragUpdateDetails _getDragUpdateDetails(ScaleUpdateDetails d) =>
@@ -748,7 +755,7 @@ RawGestureDetector getMixinGestureDetector({
   GestureDragCancelCallback? onOneFingerPanCancel,
   GestureScaleUpdateCallback? onTwoFingerScaleUpdate,
   GestureScaleEndCallback? onTwoFingerScaleEnd,
-  GestureDragUpdateCallback? onThreeFingerVerticalDragUpdate,
+  GestureDragUpdateCallback? onVerticalDragUpdate,
 }) {
   return RawGestureDetector(
       child: child,
@@ -797,7 +804,7 @@ RawGestureDetector getMixinGestureDetector({
             ..onOneFingerPanCancel = onOneFingerPanCancel
             ..onTwoFingerScaleUpdate = onTwoFingerScaleUpdate
             ..onTwoFingerScaleEnd = onTwoFingerScaleEnd
-            ..onThreeFingerVerticalDragUpdate = onThreeFingerVerticalDragUpdate;
+            ..onVerticalDragUpdate = onVerticalDragUpdate;
         }),
       });
 }

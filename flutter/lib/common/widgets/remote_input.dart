@@ -553,10 +553,10 @@ class _RawTouchGestureDetectorRegionState
     _mouseScrollIntegral += deltaY / _kMouseScrollSensitivity;
     if (_mouseScrollIntegral > 1) {
       inputModel.scroll(1);
-      _mouseScrollIntegral = 0;
+      _mouseScrollIntegral -= 1;
     } else if (_mouseScrollIntegral < -1) {
       inputModel.scroll(-1);
-      _mouseScrollIntegral = 0;
+      _mouseScrollIntegral += 1;
     }
   }
 
@@ -577,7 +577,7 @@ class _RawTouchGestureDetectorRegionState
   }
 
   get onHoldDragCancel => null;
-  get onThreeFingerVerticalDragUpdate => ffi.ffiModel.isPeerAndroid
+  get onVerticalDragUpdate => ffi.ffiModel.isPeerAndroid
       ? null
       : (d) => _processScrollDelta(d.delta.dy);
 
@@ -632,7 +632,7 @@ class _RawTouchGestureDetectorRegionState
           ..onTwoFingerScaleStart = onTwoFingerScaleStart
           ..onTwoFingerScaleUpdate = onTwoFingerScaleUpdate
           ..onTwoFingerScaleEnd = onTwoFingerScaleEnd
-          ..onThreeFingerVerticalDragUpdate = onThreeFingerVerticalDragUpdate;
+          ..onVerticalDragUpdate = onVerticalDragUpdate;
       }),
     };
   }
