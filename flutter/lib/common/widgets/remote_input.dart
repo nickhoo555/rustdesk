@@ -77,10 +77,9 @@ class RawTouchGestureDetectorRegion extends StatefulWidget {
 }
 
 /// touchMode only:
-///   LongPress -> right click
+///   Two-finger tap -> right click
 ///   OneFingerPan -> start/end -> left down start/end
 ///   onDoubleTapDown -> move to
-///   onLongPressDown => move to
 ///
 /// mouseMode only:
 ///   DoubleFiner -> right click
@@ -103,6 +102,7 @@ class _RawTouchGestureDetectorRegionState
   Offset _lastPosOfDoubleTapDown = Offset.zero;
   bool _touchModePanStarted = false;
   Offset _doubleFinerTapPosition = Offset.zero;
+  bool _isTwoFingerScrollActive = false;
 
   // For mouse mode, we need to block the events when the cursor is in a blocked area.
   // So we need to cache the last tap down position.
@@ -313,10 +313,13 @@ class _RawTouchGestureDetectorRegionState
 
     // mobile mouse mode or desktop touch screen
     final isMobileMouseMode = isMobile && !ffiModel.touchMode;
+    final isIOSTouchMode = isIOS &&
+        ffiModel.touchMode &&
+        ffi.cursorModel.isInRemoteRect(_doubleFinerTapPosition);
     // We can't use `d.localPosition` here because it's always (0, 0) on desktop.
     final isDesktopInRemoteRect = (isDesktop || isWebDesktop) &&
         ffi.cursorModel.isInRemoteRect(_doubleFinerTapPosition);
-    if (isMobileMouseMode || isDesktopInRemoteRect) {
+    if (isMobileMouseMode || isIOSTouchMode || isDesktopInRemoteRect) {
       await inputModel.tap(MouseButtons.right);
     }
   }
@@ -448,6 +451,7 @@ class _RawTouchGestureDetectorRegionState
   // scale + pan event
   onTwoFingerScaleStart(ScaleStartDetails d) {
     _lastTapDownDetails = null;
+    _isTwoFingerScrollActive = false;
     if (isNotTouchBasedDevice()) {
       return;
     }
@@ -468,6 +472,19 @@ class _RawTouchGestureDetectorRegionState
       final delta = d.focalPoint - _lastSpecialHoldDragFocalPoint;
       _lastSpecialHoldDragFocalPoint = d.focalPoint;
       await ffi.cursorModel.updatePan(delta * 2.0, d.focalPoint, handleTouch);
+      return;
+    }
+
+    if (_shouldStartTwoFingerScroll(d)) {
+      _isTwoFingerScrollActive = true;
+      _mouseScrollIntegral += d.focalPointDelta.dy / 4;
+      if (_mouseScrollIntegral > 1) {
+        inputModel.scroll(1);
+        _mouseScrollIntegral = 0;
+      } else if (_mouseScrollIntegral < -1) {
+        inputModel.scroll(-1);
+        _mouseScrollIntegral = 0;
+      }
       return;
     }
 
@@ -496,6 +513,12 @@ class _RawTouchGestureDetectorRegionState
     if (isNotTouchBasedDevice()) {
       return;
     }
+    if (_isTwoFingerScrollActive) {
+      _isTwoFingerScrollActive = false;
+      _mouseScrollIntegral = 0;
+      _scale = 1;
+      return;
+    }
     if ((isDesktop || isWebDesktop)) {
       if (widget.isCamera) return;
       await bind.sessionSendPointer(
@@ -511,6 +534,21 @@ class _RawTouchGestureDetectorRegionState
     if (!isSpecialHoldDragActive) {
       await inputModel.sendMouse('up', MouseButtons.left);
     }
+  }
+
+  bool _shouldStartTwoFingerScroll(ScaleUpdateDetails d) {
+    if (!isIOS || ffi.ffiModel.isPeerAndroid) {
+      return false;
+    }
+    if (_isTwoFingerScrollActive) {
+      return true;
+    }
+    final verticalDelta = d.focalPointDelta.dy.abs();
+    final horizontalDelta = d.focalPointDelta.dx.abs();
+    final scaleDelta = (d.scale - 1).abs();
+    return verticalDelta > 1 &&
+        verticalDelta > horizontalDelta * 1.2 &&
+        scaleDelta < 0.02;
   }
 
   get onHoldDragCancel => null;
@@ -549,10 +587,10 @@ class _RawTouchGestureDetectorRegionState
           GestureRecognizerFactoryWithHandlers<LongPressGestureRecognizer>(
               () => LongPressGestureRecognizer(), (instance) {
         instance
-          ..onLongPressDown = onLongPressDown
-          ..onLongPressUp = onLongPressUp
-          ..onLongPress = onLongPress
-          ..onLongPressMoveUpdate = onLongPressMoveUpdate;
+          ..onLongPressDown = isIOS ? null : onLongPressDown
+          ..onLongPressUp = isIOS ? null : onLongPressUp
+          ..onLongPress = isIOS ? null : onLongPress
+          ..onLongPressMoveUpdate = isIOS ? null : onLongPressMoveUpdate;
       }),
       // Customized
       HoldTapMoveGestureRecognizer:
@@ -579,6 +617,8 @@ class _RawTouchGestureDetectorRegionState
           ..onOneFingerPanUpdate = onOneFingerPanUpdate
           ..onOneFingerPanEnd = onOneFingerPanEnd
           ..onOneFingerPanCancel = onOneFingerPanCancel
+          ..verticalDragPointerCount = isIOS ? 2 : 3
+          ..shouldStartTwoFingerVerticalDrag = _shouldStartTwoFingerScroll
           ..onTwoFingerScaleStart = onTwoFingerScaleStart
           ..onTwoFingerScaleUpdate = onTwoFingerScaleUpdate
           ..onTwoFingerScaleEnd = onTwoFingerScaleEnd

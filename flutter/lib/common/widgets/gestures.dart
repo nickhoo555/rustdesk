@@ -7,8 +7,10 @@ enum GestureState {
   none,
   oneFingerPan,
   twoFingerScale,
-  threeFingerVerticalDrag
+  verticalDrag
 }
+
+typedef TwoFingerVerticalDragDecider = bool Function(ScaleUpdateDetails details);
 
 class CustomTouchGestureRecognizer extends ScaleGestureRecognizer {
   CustomTouchGestureRecognizer({
@@ -36,6 +38,8 @@ class CustomTouchGestureRecognizer extends ScaleGestureRecognizer {
   GestureDragStartCallback? onThreeFingerVerticalDragStart;
   GestureDragUpdateCallback? onThreeFingerVerticalDragUpdate;
   GestureDragEndCallback? onThreeFingerVerticalDragEnd;
+  int verticalDragPointerCount = 3;
+  TwoFingerVerticalDragDecider? shouldStartTwoFingerVerticalDrag;
 
   var _currentState = GestureState.none;
   Timer? _debounceTimer;
@@ -47,17 +51,19 @@ class CustomTouchGestureRecognizer extends ScaleGestureRecognizer {
       _debounceTimer?.cancel();
       if (d.pointerCount == 1 && _currentState != GestureState.oneFingerPan) {
         onOneFingerStartDebounce(d);
-      } else if (d.pointerCount == 2 &&
-          _currentState != GestureState.twoFingerScale) {
-        onTwoFingerStartDebounce(d);
-      } else if (d.pointerCount == 3 &&
-          _currentState != GestureState.threeFingerVerticalDrag) {
-        _currentState = GestureState.threeFingerVerticalDrag;
+      } else if (d.pointerCount == verticalDragPointerCount &&
+          _currentState != GestureState.verticalDrag &&
+          (verticalDragPointerCount != 2 ||
+              shouldStartTwoFingerVerticalDrag?.call(d) == true)) {
+        _currentState = GestureState.verticalDrag;
         if (onThreeFingerVerticalDragStart != null) {
           onThreeFingerVerticalDragStart!(
               DragStartDetails(globalPosition: d.localFocalPoint));
         }
-        debugPrint("start threeFingerScale");
+        debugPrint("start verticalDrag");
+      } else if (d.pointerCount == 2 &&
+          _currentState != GestureState.twoFingerScale) {
+        onTwoFingerStartDebounce(d);
       }
       if (_currentState != GestureState.none) {
         switch (_currentState) {
@@ -71,7 +77,7 @@ class CustomTouchGestureRecognizer extends ScaleGestureRecognizer {
               onTwoFingerScaleUpdate!(d);
             }
             break;
-          case GestureState.threeFingerVerticalDrag:
+          case GestureState.verticalDrag:
             if (onThreeFingerVerticalDragUpdate != null) {
               onThreeFingerVerticalDragUpdate!(_getDragUpdateDetails(d));
             }
@@ -105,8 +111,8 @@ class CustomTouchGestureRecognizer extends ScaleGestureRecognizer {
             return;
           }
           break;
-        case GestureState.threeFingerVerticalDrag:
-          debugPrint("ThreeFingerState.vertical onEnd");
+        case GestureState.verticalDrag:
+          debugPrint("VerticalDragState.onEnd");
           if (onThreeFingerVerticalDragEnd != null) {
             onThreeFingerVerticalDragEnd!(_getDragEndDetails(d));
           }
@@ -151,7 +157,7 @@ class CustomTouchGestureRecognizer extends ScaleGestureRecognizer {
       }
     }
 
-    if (_currentState == GestureState.threeFingerVerticalDrag) {
+    if (_currentState == GestureState.verticalDrag) {
       _debounceTimer = Timer(Duration(milliseconds: 200), () {
         start(d);
         debugPrint("debounce start twoFingerScale");
@@ -183,7 +189,7 @@ class CustomTouchGestureRecognizer extends ScaleGestureRecognizer {
       case GestureState.twoFingerScale:
         // Reset scale state if needed, currently self-contained
         break;
-      case GestureState.threeFingerVerticalDrag:
+      case GestureState.verticalDrag:
         // Reset drag state if needed, currently self-contained
         break;
       default:
